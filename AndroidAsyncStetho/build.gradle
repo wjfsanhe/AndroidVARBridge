@@ -2,7 +2,7 @@ apply plugin: 'com.android.library'
 
 dependencies {
     compile project(':AndroidAsync')
-    compile "com.facebook.stetho:stetho:1.0.0"
+    compile 'com.facebook.stetho:stetho:1.0.0'
 }
 
 android {
@@ -14,19 +14,22 @@ android {
             }
         }
     }
-
     lintOptions {
         abortOnError false
     }
-
     defaultConfig {
-        targetSdkVersion 22
-        minSdkVersion 9
+        targetSdkVersion
+        minSdkVersion 25
+        targetSdkVersion 25
     }
-
     compileSdkVersion project.hasProperty('global_compileSdkVersion') ? global_compileSdkVersion : 25
     buildToolsVersion project.hasProperty('global_buildToolsVersion') ? global_buildToolsVersion : '25.0.2'
-
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    productFlavors {
+    }
 }
 
 // upload to maven task

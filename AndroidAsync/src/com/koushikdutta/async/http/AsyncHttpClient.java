@@ -473,7 +473,10 @@ public class AsyncHttpClient {
                 break;
         }
     }
-
+    public static abstract class BufferCallback extends RequestCallbackBase<Integer>{
+        public void onData(AsyncHttpResponse response, long downloaded, ByteBufferList bb) {
+        }
+    }
     public static abstract class RequestCallbackBase<T> implements RequestCallback<T> {
         @Override
         public void onProgress(AsyncHttpResponse response, long downloaded, long total) {
@@ -544,6 +547,72 @@ public class AsyncHttpClient {
     private void invokeConnect(final RequestCallback callback, final AsyncHttpResponse response) {
         if (callback != null)
             callback.onConnect(response);
+    }
+
+    private class BufferDataCallback implements DataCallback, CompletedCallback {
+        public BufferDataCallback() {}
+
+        @Override
+        public void onDataAvailable(DataEmitter emitter, ByteBufferList bb) {
+            //no op .
+        }
+        @Override
+        public void onCompleted(Exception error) {
+            error.printStackTrace();
+        }
+    }
+    public Future<Integer> executeBuffer(AsyncHttpRequest req, final BufferCallback callback ) {
+        final FutureAsyncHttpResponse cancel = new FutureAsyncHttpResponse();
+        final SimpleFuture<Integer> ret = new SimpleFuture<Integer>() {
+            @Override
+            public void cancelCleanup() {
+                try {
+                    cancel.get().setDataCallback(new DataCallback.NullDataCallback());
+                    cancel.get().close();
+                }
+                catch (Exception e) {
+                }
+            }
+        };
+        ret.setParent(cancel);
+        execute(req, 0, cancel, new HttpConnectCallback() {
+            long mDownloaded = 0;
+
+            @Override
+            public void onConnectCompleted(Exception ex, final AsyncHttpResponse response) {
+                if (ex != null) {
+                    invoke(callback, ret, response, ex, null);
+                    return;
+                }
+                invokeConnect(callback, response);
+
+                final long contentLength = HttpUtil.contentLength(response.headers());
+
+                response.setDataCallback(new BufferDataCallback() {
+                    @Override
+                    public void onDataAvailable(DataEmitter emitter, ByteBufferList bb) {
+                        mDownloaded += bb.remaining();
+                        super.onDataAvailable(emitter, bb);
+                        invokeProgress(callback, response, mDownloaded, contentLength);
+                        invokeOnData(callback, response, mDownloaded, bb);
+                    }
+                });
+                response.setEndCallback(new CompletedCallback() {
+                    @Override
+                    public void onCompleted(Exception ex) {
+                        if (ex != null) {
+                            invoke(callback, ret, response, ex, null);
+                        }
+                    }
+                });
+            }
+        });
+        return ret;
+    }
+
+    private void invokeOnData(BufferCallback callback, AsyncHttpResponse response, long downloaded, ByteBufferList bb) {
+        if (callback != null)
+            callback.onData(response, downloaded, bb);
     }
 
     public Future<File> executeFile(AsyncHttpRequest req, final String filename, final FileCallback callback) {
