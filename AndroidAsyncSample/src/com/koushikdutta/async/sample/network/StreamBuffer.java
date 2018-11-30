@@ -85,12 +85,14 @@ public class StreamBuffer extends StreamUploadConnector{
 	}
 	private final int DATA_TYPE_HEADER = 0;
 	private final int DATA_TYPE_PAYLOAD =1;
-	private boolean mFrameContinue = false;
+	private int mCurrentDataType = DATA_TYPE_HEADER;
+	private boolean mDataContinue = false;
 	private PHASE mPhase;
 	private byte[] mHeader_SPS_PPS;
 	private LinkedList<ChunkItem> mBufferPoolList = null;
 	private static StreamBuffer mInstance = null;
 	private ChunkItem mCurrentChunkItem;
+	private Item mCurrentHeaderItem;
 
 	public StreamBuffer(){
 		init();
@@ -147,13 +149,19 @@ public class StreamBuffer extends StreamUploadConnector{
 				try {
 					//synchronized (this)
 					{
-						size = mBufferPoolList.size();
 						/*try {
 							if(size == 0) wait();
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}*/
-						ret = mBufferPoolList.pop();
+						synchronized (StreamBuffer.this) {
+							size = mBufferPoolList.size();
+							if (size != 0) {
+								ret = mBufferPoolList.pop();
+							} else {
+								ret = null;
+							}
+						}
 					}
 					if (ret != null)
 					mTotalBytes -= ret.chunkInfo[CHUNK_CONFIG_DATASIZE];
@@ -204,7 +212,9 @@ public class StreamBuffer extends StreamUploadConnector{
 		mPhase = PHASE.PREPARE;
 		mTotalBytes = 0;
 		mBufferPoolList = new LinkedList<ChunkItem>();
-		mFrameContinue = false;
+		mDataContinue = false;
+		mCurrentHeaderItem = new Item();
+		mCurrentDataType = DATA_TYPE_HEADER;
 	}
 
 	private void init() {
@@ -215,7 +225,10 @@ public class StreamBuffer extends StreamUploadConnector{
 
 	private abstract class Fetcher {
 		public abstract int processInput(InputStream in);
-		protected int fetchRequestBytes(InputStream in, byte[] load, int offset,int len ,ChunkItem item){
+		protected int fetchRequestBytes(InputStream in, Item item){
+			byte[] load = item.rawData;
+			int offset = item.offset;
+			int len = item.remaining;
 			do {
 				int l = 0;
 				try {
@@ -238,16 +251,16 @@ public class StreamBuffer extends StreamUploadConnector{
 				}
 				Log.d(TAG,"read back " + l + " bytes.");
 				if (l < 0) {
-					try {
-						Thread.sleep(1);
+/*					try {
+						//Thread.sleep(1);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
-					}
+					}*/
 					return -1;
 				}
 				if (Thread.currentThread().isInterrupted()) return -1; 
 			} while (len > 0);
-			Logger.d("offset = " + offset + " bytes, return to fetcher");
+			Log.d(TAG, "offset = " + offset + " bytes, return to fetcher");
 			return 0;
 		}
 	}
@@ -255,18 +268,27 @@ public class StreamBuffer extends StreamUploadConnector{
 		//put header into StreamBuffer,and fill ChunkItem
 		public int processInput(InputStream in) {
 			//read header.
-			byte[] header = new byte[12];
-			if (fetchRequestBytes(in, header, 0, 12, null) < 0) {
+			if (mDataContinue == false) {
+				byte[] payload = new byte[12];
+				mCurrentHeaderItem.rawData = payload;
+				mCurrentHeaderItem.offset = 0;
+				mCurrentHeaderItem.remaining = 12;
+			}
+
+			if (fetchRequestBytes(in, mCurrentHeaderItem) < 0) {
+				mDataContinue = true;
 				return OP_STATUS_FAIL;
 			}
+			mDataContinue = false;
 			mCurrentChunkItem = new ChunkItem();
-			mCurrentChunkItem.chunkInfo = byteArray2IntArray(header, ByteOrder.LITTLE_ENDIAN);
+			mCurrentChunkItem.chunkInfo = byteArray2IntArray(mCurrentHeaderItem.rawData, ByteOrder.LITTLE_ENDIAN);
 			
 			int ret = OP_STATUS_SUCCESS;
 			if ((mCurrentChunkItem.chunkInfo[CHUNK_CONFIG_FLAG] & ~0x7) != 0) {
 				Log.d(TAG,"invalid Frame Type");
 				ret = OP_STATUS_FAIL;
 			}
+			mCurrentDataType = DATA_TYPE_PAYLOAD;
 			Log.d(TAG,String.format("Header: 0x%08x 0x%08x 0x%08x\n", mCurrentChunkItem.chunkInfo[0],
 					mCurrentChunkItem.chunkInfo[1], mCurrentChunkItem.chunkInfo[2]));
 			return ret;
@@ -276,23 +298,22 @@ public class StreamBuffer extends StreamUploadConnector{
 		public int processInput(InputStream in) {
 			int payloadLen = mCurrentChunkItem.chunkInfo[CHUNK_CONFIG_DATASIZE] - 8;
 
-			if (mFrameContinue == false) {
+			if (mDataContinue == false) {
 				byte[] payload = new byte[payloadLen];
 				mCurrentChunkItem.rawData = payload;
 				mCurrentChunkItem.offset = 0;
 				mCurrentChunkItem.remaining = payloadLen;
 				Log.d(TAG, "payLoadlen = " + payloadLen);
 			}
-			if (fetchRequestBytes(in, mCurrentChunkItem.rawData, mCurrentChunkItem.offset,
-																	mCurrentChunkItem.remaining,
-																	mCurrentChunkItem ) < 0)
+			if (fetchRequestBytes(in, mCurrentChunkItem ) < 0)
 			{
-				mPhase = PHASE.FRAME;
-				mFrameContinue = true;
+				//mPhase = PHASE.FRAME;
+				mDataContinue = true;
 				return OP_STATUS_FAIL;
 			}
 
-
+			mDataContinue = false;
+			mCurrentDataType = DATA_TYPE_HEADER;
 			if (mPhase == PHASE.PREPARE) {
 				mHeader_SPS_PPS = mCurrentChunkItem.rawData;
 				Log.d(TAG,"SPS_PPS =>");
@@ -307,15 +328,13 @@ public class StreamBuffer extends StreamUploadConnector{
 			}
 
 			mCurrentChunkItem.chunkInfo[CHUNK_CONFIG_DATASIZE] = payloadLen;//modify payload len to real size.
-			synchronized (this) {
+			synchronized (StreamBuffer.this) {
 				mBufferPoolList.add(mCurrentChunkItem);
-				notifyAll();
 			}
 			put(DATA_IDX_FRAME); //notify
 			//reset frame flag.
-			mFrameContinue = false;
 			mTotalBytes += mCurrentChunkItem.chunkInfo[CHUNK_CONFIG_DATASIZE];
-			Logger.d("Total = " + mTotalBytes + ", item in list is " + mBufferPoolList.size());
+			Log.d(TAG, "Total = " + mTotalBytes + ", item in list is " + mBufferPoolList.size());
 			return OP_STATUS_SUCCESS;
 		}
 	}
@@ -325,7 +344,7 @@ public class StreamBuffer extends StreamUploadConnector{
 	public int enqueue(InputStream in) {
 		int ret = OP_STATUS_FAIL;
 		do {
-			if (mFrameContinue == true) {
+			/*if (mDataContinue == true) {
 				ret = mFetcher[DATA_TYPE_PAYLOAD].processInput(in);
 			} else {
 				ret = mFetcher[DATA_TYPE_HEADER].processInput(in);
@@ -333,7 +352,8 @@ public class StreamBuffer extends StreamUploadConnector{
 					//if the HEADER fetched successfully,then switch to the second step.
 					ret = mFetcher[DATA_TYPE_PAYLOAD].processInput(in);
 				}
-			}
+			}*/
+			ret = mFetcher[mCurrentDataType].processInput(in);			
 
 		} while (ret != OP_STATUS_FAIL);
 		Log.d(TAG, "exit while loop");

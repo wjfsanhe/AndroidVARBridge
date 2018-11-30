@@ -1,8 +1,10 @@
 package com.koushikdutta.async.sample.network;
 
 public abstract  class StreamUploadConnector {
-	public class ChunkItem {
+	public class ChunkItem extends  Item{
 		public int[] chunkInfo; // 0 dataSize, 1 pts, 2 flag
+	};
+	public class Item {
 		public byte[] rawData;
 		public int offset;
 		public int remaining;

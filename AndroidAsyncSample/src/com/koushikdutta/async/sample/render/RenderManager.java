@@ -21,7 +21,7 @@ public class RenderManager extends StreamUploadConnector {
 		public static final int FRAME_RATE = 30;
 		public static final int IFRAME_INTERVAL = 1;
 		public static final int TIMEOUT_US = 10 * 1000;
-		public static final int BITRATE = 6000 * 1000;
+		public static final int BITRATE = 1000 * 1000;
 		public static final String MIME_TYPE = "video/avc";//h264
 	}
 	private static final String TAG = RenderManager.class.getSimpleName();
@@ -58,6 +58,7 @@ public class RenderManager extends StreamUploadConnector {
 						case DATA_IDX_FRAME:
 							//frame data coming.
 							mInstance.decode();
+							mInstance.onPut(DATA_IDX_FRAME);
 							break;
 					}
 				}
@@ -118,7 +119,9 @@ public class RenderManager extends StreamUploadConnector {
 	@Override
 	public ChunkItem get(int idx){
 		ChunkItem item = mPeer.onGet(idx);
-		Log.d(TAG, "onGet ret size " + item.chunkInfo[CHUNK_CONFIG_DATASIZE]);
+		if (item != null) {
+			Log.d(TAG, "onGet ret size " + item.chunkInfo[CHUNK_CONFIG_DATASIZE]);
+		}
 		return item;
 	}
 
