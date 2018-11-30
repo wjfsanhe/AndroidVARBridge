@@ -1,7 +1,11 @@
 apply plugin: 'com.android.application'
 
 dependencies {
-    compile project(':AndroidAsync')
+    implementation project(':AndroidAsync')
+    implementation 'com.android.support:design:27.1.1'
+    implementation 'com.orhanobut:logger:2.1.1'
+    implementation 'com.android.support.constraint:constraint-layout:1.1.3'
+    implementation project(':ddmlib')
 }
 
 android {
@@ -18,11 +22,31 @@ android {
         minSdkVersion 25
     }
 
-    compileSdkVersion project.hasProperty('global_compileSdkVersion') ? global_compileSdkVersion : 25
+    compileSdkVersion 27
     buildToolsVersion project.hasProperty('global_buildToolsVersion') ? global_buildToolsVersion : '25.0.2'
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
+    }
+    signingConfigs{
+        release {
+            storeFile file("/home/wangjf/signature/alien/demo.jks")
+            storePassword '123456'
+            keyAlias  'demo'
+            keyPassword '123456'
+        }
+        debug {
+            storeFile file("/home/wangjf/signature/alien/demo.jks")
+            storePassword '123456'
+            keyAlias  'demo'
+            keyPassword '123456'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
     }
 }
 

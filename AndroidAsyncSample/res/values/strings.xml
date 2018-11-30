@@ -5,4 +5,6 @@
     <string name="menu_settings">Settings</string>
     <string name="title_activity_main">AndroidAsync Sample</string>
 	<string name="download">Download Images</string>
+    <string name="label_req_body">Request body</string>
+    <string name="label_headers">Headers (key=val, one per line)</string>
 </resources>

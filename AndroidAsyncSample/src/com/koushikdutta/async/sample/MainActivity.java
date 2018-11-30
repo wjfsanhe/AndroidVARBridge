@@ -2,6 +2,7 @@ package com.koushikdutta.async.sample;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
@@ -24,6 +25,7 @@ import com.koushikdutta.async.http.BasicNameValuePair;
 import com.koushikdutta.async.http.NameValuePair;
 import com.koushikdutta.async.http.body.UrlEncodedFormBody;
 import com.koushikdutta.async.http.cache.ResponseCacheMiddleware;
+import com.koushikdutta.async.sample.device.DeviceMonitorActivity;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,6 +33,7 @@ import java.util.ArrayList;
 
 public class MainActivity extends Activity {
     static ResponseCacheMiddleware cacher;
+    private final String TAG = "MainActivity";
     
     ImageView rommanager;
     ImageView tether;
@@ -52,7 +55,7 @@ public class MainActivity extends Activity {
             }
         }
         setContentView(R.layout.activity_main);
-        
+		startActivity(new Intent(this,  DeviceMonitorActivity.class));
         Button b = (Button)findViewById(R.id.go);
         b.setOnClickListener(new OnClickListener() {
             @Override
@@ -111,6 +114,14 @@ public class MainActivity extends Activity {
                 BitmapDrawable bd = new BitmapDrawable(bitmap);
                 assignImageView(iv, bd);
             }
+            @Override
+            public void onProgress(AsyncHttpResponse response, long downloaded, long total) {
+                Log.d(TAG, "onProgress : " + downloaded * 100f / total  + " %");
+            }
+            @Override
+            public void onConnect(AsyncHttpResponse response) {
+                Log.d(TAG, "onConnect be called");
+            }
         });
     }
 
@@ -160,7 +171,8 @@ public class MainActivity extends Activity {
         
         getFile(rommanager, "https://raw.github.com/koush/AndroidAsync/master/rommanager.png", getFileStreamPath(randomFile()).getAbsolutePath());
         getFile(tether, "https://raw.github.com/koush/AndroidAsync/master/tether.png", getFileStreamPath(randomFile()).getAbsolutePath());
-        getFile(desksms, "https://raw.github.com/koush/AndroidAsync/master/desksms.png", getFileStreamPath(randomFile()).getAbsolutePath());
+        //getFile(desksms, "https://raw.github.com/koush/AndroidAsync/master/desksms.png", getFileStreamPath(randomFile()).getAbsolutePath());
+        getFile(desksms, "http://localhost:52174/screenshot.jpg", getFileStreamPath(randomFile()).getAbsolutePath());
         getChartFile();
         
         Log.i(LOGTAG, "cache hit: " + cacher.getCacheHitCount());

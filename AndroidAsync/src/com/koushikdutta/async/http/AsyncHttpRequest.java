@@ -88,10 +88,12 @@ public class AsyncHttpRequest {
             if (host != null)
                 ret.set("Host", host);
         }
-        ret.set("User-Agent", getDefaultUserAgent());
-        ret.set("Accept-Encoding", "gzip, deflate");
+        //ret.set("User-Agent", getDefaultUserAgent());
+        ret.set("Accept-Encoding", "gzip");
         ret.set("Connection", "keep-alive");
-        ret.set("Accept", HEADER_ACCEPT_ALL);
+        ret.set("Range", "bytes=0-");
+        ret.set("Content-Length", "0");
+        //ret.set("Accept", HEADER_ACCEPT_ALL);
     }
 
     public static final String HEADER_ACCEPT_ALL = "*/*";
