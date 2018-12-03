@@ -57,8 +57,9 @@ public class RenderManager extends StreamUploadConnector {
 							break;
 						case DATA_IDX_FRAME:
 							//frame data coming.
-							mInstance.decode();
-							mInstance.onPut(DATA_IDX_FRAME);
+							if (mInstance.decode() == 0) {
+								mInstance.onPut(DATA_IDX_FRAME);
+							}
 							break;
 					}
 				}
@@ -125,7 +126,7 @@ public class RenderManager extends StreamUploadConnector {
 		return item;
 	}
 
-	public void decode() {
+	public int decode() {
 		MediaCodec decoder = mPlayer.getDecoder();
 		while (decoder == null) {
 			try {
@@ -151,6 +152,8 @@ public class RenderManager extends StreamUploadConnector {
 					//0, item.chunkInfo[CHUNK_CONFIG_FLAG]);
 				}
 			}
+		} else {
+			return -1;
 		}
 		//SystemClock.sleep(120);
 		int outIndex = 0;
@@ -165,5 +168,6 @@ public class RenderManager extends StreamUploadConnector {
 			}
 			Log.d(TAG, "-------+++++ cycle " + outIndex);
 		} while (outIndex >= 0);
+		return 0;
 	}
 }

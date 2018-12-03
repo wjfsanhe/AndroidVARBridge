@@ -159,6 +159,7 @@ public class StreamBuffer extends StreamUploadConnector{
 							if (size != 0) {
 								ret = mBufferPoolList.pop();
 							} else {
+								Log.d(TAG, "list is null");
 								ret = null;
 							}
 						}
