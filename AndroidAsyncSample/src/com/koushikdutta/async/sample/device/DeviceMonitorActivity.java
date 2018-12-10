@@ -203,7 +203,7 @@ public class DeviceMonitorActivity extends Activity {
 		try {
 			if (host == null) {
 				updataIPAddr();
-				while(mCurrentDeviceIPV4Addr == null){
+				while (mCurrentDeviceIPV4Addr == null) {
 					try {
 						Thread.sleep(100);
 					} catch (InterruptedException e) {
@@ -264,7 +264,17 @@ public class DeviceMonitorActivity extends Activity {
 							Log.d(TAG, "start process main completed");
 						}
 					}).start();
-					mBaseContext.startActivity(new Intent(mBaseContext, NetworkActivity.class));
+					while (mCurrentDeviceIPV4Addr == null) {
+						try {
+							Thread.sleep(100);
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
+					}
+					Intent intent = new Intent(mBaseContext, NetworkActivity.class);
+					intent.putExtra("addr", mCurrentDeviceIPV4Addr);
+					Log.d(TAG, "start Activity with " + mCurrentDeviceIPV4Addr);
+					mBaseContext.startActivity(intent);
 				} catch (TimeoutException e) {
 					e.printStackTrace();
 					e.printStackTrace();

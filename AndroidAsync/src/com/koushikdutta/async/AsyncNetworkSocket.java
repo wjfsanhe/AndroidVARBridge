@@ -16,6 +16,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 
 public class AsyncNetworkSocket implements AsyncSocket {
+    private final String TAG = AsyncNetworkSocket.class.getSimpleName();
     AsyncNetworkSocket() {
     }
 
@@ -133,6 +134,7 @@ public class AsyncNetworkSocket implements AsyncSocket {
         long read;
         try {
             read = mChannel.read(b);
+            Log.d(TAG, "socket read " + read + " bytes");
         }
         catch (Exception e) {
             read = -1;

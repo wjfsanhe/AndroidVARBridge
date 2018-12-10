@@ -6,12 +6,15 @@ import android.support.annotation.LayoutRes;
 import android.support.annotation.MainThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import static android.support.constraint.Constraints.TAG;
 
 /**
  * Created by yhao on 2017/12/22.
@@ -24,7 +27,7 @@ public class FloatWindow {
 
     }
 
-    private static final String mDefaultTag = "default_float_window_tag";
+    private static final String mDefaultTag = "FLOATWINDOW";
     private static Map<String, IFloatWindow> mFloatWindowMap;
 
     public static IFloatWindow get() {
@@ -102,6 +105,7 @@ public class FloatWindow {
             mWidth = (int) ((screenType == Screen.width ?
                     Util.getScreenWidth(mApplicationContext) :
                     Util.getScreenHeight(mApplicationContext)) * ratio);
+            Log.d(mTag, "WIDTH = " + mWidth);
             return this;
         }
 
@@ -110,6 +114,7 @@ public class FloatWindow {
             mHeight = (int) ((screenType == Screen.width ?
                     Util.getScreenWidth(mApplicationContext) :
                     Util.getScreenHeight(mApplicationContext)) * ratio);
+            Log.d(mTag, "HEIGHT = " + mHeight);
             return this;
         }
 

@@ -2,11 +2,13 @@ package com.koushikdutta.async.sample.network;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.graphics.RectF;
 import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
@@ -62,11 +64,12 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 	private static final int MENU_CLEAR_VIEW = 1;
 	private static final int MENU_LOGGING_VERBOSITY = 2;
 	private static final int MENU_ENABLE_LOGGING = 3;
-	private static final String DEFAULT_URL = "localhost:52174/h264";
+	private static String DEFAULT_URL = "192.168.1.109:52174/h264";
 	protected static String PROTOCOL = PROTOCOL_HTTP;
 	public LinearLayout customFieldsLayout;
 	private Button runButton;
 	private Button cancelButton;
+	private String remoteIPV4Addr;
 	private Button usbButton;
 	SurfaceHolder mSurfaceHolder;
 	SurfaceView surfaceView;
@@ -88,18 +91,22 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 	}
 	public static class configuration {
 		public static int LISTEN_PORT = 52174;
-		public static int ScreenWIDTH = 720;
-		public static int ScreenHEIGHT = 1280;
+		public static int ScreenWIDTH = 2160;
+		public static int ScreenHEIGHT = 2160;
 		public static int FRAME_RATE = 30;// 帧率
 		public static int IFRAME_INTERVAL = 1;//  I帧间隔
 		public static int TIMEOUT_US = 10 * 1000;
 		public static int BITRATE = 1000 * 1000;//码率
 		public static String MIME_TYPE = "video/avc"; // H.264 编码
+		public static int REMOTE_WIDTH;
+		public static int REMOTE_HEIGHT;
 		public static void dump() {
 			Log.d(LOG_TAG, "--------------------------------------------------------");
 			Log.d(LOG_TAG, "LISTEN_PORT : " + configuration.LISTEN_PORT);
 			Log.d(LOG_TAG, "ScreenWIDTH : " + configuration.ScreenWIDTH);
 			Log.d(LOG_TAG, "ScreenHEIGHT : " + configuration.ScreenHEIGHT);
+			Log.d(LOG_TAG, "ScreenWIDTH remote : " + configuration.REMOTE_WIDTH);
+			Log.d(LOG_TAG, "ScreenHEIGHT remote: " + configuration.REMOTE_HEIGHT);
 			Log.d(LOG_TAG, "FRAME_RATE : " + configuration.FRAME_RATE);
 			Log.d(LOG_TAG, "IFRAME_INTERVAL : " + configuration.IFRAME_INTERVAL);
 			Log.d(LOG_TAG, "BITRATE : " + configuration.BITRATE);
@@ -151,10 +158,10 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 		FloatWindow
 				.with(getApplicationContext())
 				.setView(baseView)
-				.setWidth(configuration.ScreenWIDTH, 1)
-				.setHeight(configuration.ScreenHEIGHT, 1f)
-				.setX(configuration.ScreenWIDTH, 1f)
-				.setY(configuration.ScreenHEIGHT, 1f)
+				.setWidth(configuration.ScreenWIDTH, 1.0f)
+				.setHeight(configuration.ScreenHEIGHT, 1.0f)
+				.setX(0)
+				.setY(0)
 				.setMoveType(MoveType.slide)
 				.setFilter(true)
 				.setMoveStyle(500, new BounceInterpolator())
@@ -293,7 +300,7 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 	}
 
 	private void setupInput() {
-		AsyncHttpClient.getDefaultInstance().websocket("ws://localhost:52174/input", "mirror",
+		AsyncHttpClient.getDefaultInstance().websocket("ws://" + remoteIPV4Addr +":52174/input", "mirror",
 				new AsyncHttpClient.WebSocketConnectCallback() {
 					public void onCompleted(Exception ex, WebSocket webSocket) {
 						if(ex != null) {
@@ -302,6 +309,33 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 						}
 						Log.d(LOG_TAG, "input channel created " + webSocket.toString());
 						mInputChannel = webSocket;
+						mInputChannel.setStringCallback(new WebSocket.StringCallback() {
+							@Override
+							public void onStringAvailable(String s) {
+								try {
+									JSONObject jsonObject = new JSONObject(s);
+									String type;
+									Log.d(LOG_TAG, "incoming event : " + s);
+									type = jsonObject.getString("type");
+
+									if ("displaySize".equals(type)) {
+
+										int width = jsonObject.optInt("screenWidth");
+										int height = jsonObject. optInt("screenHeight");
+										boolean hasNav = jsonObject.optBoolean("nav");
+										int rotation = jsonObject.optInt("rotation");
+										Log.d(LOG_TAG , "change oritation : width = " + width +
+																				", height = " + height +
+																				", has Nav = " + hasNav +
+																				", rotation = " + rotation);
+										//resize surfaceView
+
+									}
+								} catch (JSONException e) {
+									e.printStackTrace();
+								}
+							}
+						});
 						try {
 							JSONObject msg = new JSONObject();
 							String type = new String("type");
@@ -315,6 +349,37 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 					}
 				});
 	}
+	/*private void resizeSurfaceView()
+	{
+		int width = mediaPlayer.getVideoWidth();
+		int height = mediaPlayer.getVideoHeight();
+		Point surfaceViewSize = measureSurfaceViewSize(width, height);
+		RelativeLayout.LayoutParams surfaceLayoutParams = (LayoutParams) surfaceView.getLayoutParams();
+
+		surfaceLayoutParams.width = surfaceViewSize.x;
+		surfaceLayoutParams.height = surfaceViewSize.y;
+
+		Log.d("size", " new size = " + surfaceViewSize);
+		surfaceLayoutParams.addRule(RelativeLayout.CENTER_IN_PARENT);
+//重新设置布局
+		mSurfaceView.setLayoutParams(surfaceLayoutParams);
+	}
+
+	//根据视频宽高和父View的宽高计算SurfaceView的宽高
+	private Point measureSurfaceViewSize(int width, int height) {
+		float parentWh = getMeasuredWidth() * 1.0f / getMeasuredHeight();
+		float videoWh = width * 1.0f / height;
+		Point surfaceViewSize = new Point();
+		if (parentWh >= videoWh) {
+			surfaceViewSize.y = getMeasuredHeight();
+			surfaceViewSize.x = (int) (surfaceViewSize.y * videoWh);
+		} else {
+			surfaceViewSize.x = getMeasuredWidth();
+			surfaceViewSize.y = (int) (surfaceViewSize.x / videoWh);
+		}
+
+		return surfaceViewSize;
+	}*/
 	private RectF calcViewScreenLocation(View view) {
 		int[] location = new int[2];
 		view.getLocationOnScreen(location);
@@ -337,7 +402,10 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 					Log.d(LOG_TAG, "clone event:" + cloneEvent.toString());
 					x = cloneEvent.getRawX();
 					y = cloneEvent.getRawY();
+					x = x * configuration.REMOTE_WIDTH / configuration.ScreenWIDTH;
+					y = y * configuration.REMOTE_HEIGHT / configuration.ScreenHEIGHT;
 
+					Log.d(LOG_TAG,"touch event (calc): [ " + x + " , " + y + "]");
 					type = new String("clientX");
 					msg.put(type, x);
 					type = new String("clientY");
@@ -388,6 +456,7 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 		public void onClick(View v) {
 			switch (v.getId()) {
 				case R.id.button_run:
+					setupConfiguration();
 					if (getCurrentRequestType() == RequestType.MIRROR) {
 						onRunButtonPressed_MIRROR();
 					} else {
@@ -422,10 +491,23 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 		return true;
 	}
 	@Override
+	protected void onNewIntent(Intent intent) {
+		super.onNewIntent(intent);
+		setIntent(intent);
+		processExtraData();
+	}
+	private void processExtraData(){
+		Intent intent = getIntent();
+		remoteIPV4Addr = intent.getStringExtra("addr");
+		Log.d(LOG_TAG, "input IPV4Addr " + remoteIPV4Addr);
+		DEFAULT_URL = new String(remoteIPV4Addr + ":52174/h264");
+	}
+	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
 		//if (!PermissionActivity.checkAndRequestPermission(this, REQUIRE_PERMISSIONS)) {
+		processExtraData();
 		setContentView(R.layout.parent_layout);
 		setTitle("Network Activity");
 
@@ -457,24 +539,23 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 			cancelButton.setVisibility(View.VISIBLE);
 			cancelButton.setOnClickListener(onClickListener);
 		}
-		setupConfiguration();
-
 	}
 
 	private void setupConfiguration() {
-		AsyncHttpGet asyncHttpGet = new AsyncHttpGet("http://localhost:52174/config");
+		AsyncHttpGet asyncHttpGet = new AsyncHttpGet("http://" + remoteIPV4Addr + ":52174/config");
 		AsyncHttpClient.getDefaultInstance().executeJSONObject(asyncHttpGet, new AsyncHttpClient.JSONObjectCallback() {
 			@Override
 			public void onCompleted(Exception e, AsyncHttpResponse source, JSONObject jsonObj) {
-			/*	configuration.LISTEN_PORT = jsonObj.optInt("LISTEN_PORT");
+				if (jsonObj == null) return;
+				configuration.LISTEN_PORT = jsonObj.optInt("LISTEN_PORT");
 				configuration.BITRATE = jsonObj.optInt("BITRATE");
 				configuration.FRAME_RATE = jsonObj.optInt("FRAME_RATE");
 				configuration.IFRAME_INTERVAL = jsonObj.optInt("IFRAME_INTERVAL");
-				configuration.ScreenHEIGHT = jsonObj.optInt("ScreenHEIGHT");
-				configuration.ScreenWIDTH = jsonObj.optInt("ScreenWIDTH");
+				configuration.REMOTE_HEIGHT = jsonObj.optInt("ScreenHEIGHT");
+				configuration.REMOTE_WIDTH = jsonObj.optInt("ScreenWIDTH");
 				configuration.TIMEOUT_US = jsonObj.optInt("TIMEOUT_US");
 				configuration.MIME_TYPE = jsonObj.optString("MIME_TYPE");
-				configuration.dump();*/
+				configuration.dump();
 			}
 		});
 	}
