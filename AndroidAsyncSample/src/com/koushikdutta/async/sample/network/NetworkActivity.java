@@ -66,6 +66,8 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 	private static final int MENU_ENABLE_LOGGING = 3;
 	private static String DEFAULT_URL = "192.168.1.109:52174/h264";
 	protected static String PROTOCOL = PROTOCOL_HTTP;
+	private FileOutputStream fileMirror = null;
+	private static boolean mStreamRecord = false;
 	public LinearLayout customFieldsLayout;
 	private Button runButton;
 	private Button cancelButton;
@@ -73,6 +75,8 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 	private Button usbButton;
 	SurfaceHolder mSurfaceHolder;
 	SurfaceView surfaceView;
+	int surfaceViewWidth;
+	int surfaceViewHeight;
 	boolean mPaired = false;
 	Handler mHandler = new Handler();
 
@@ -185,8 +189,10 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 	private File getDownloadTarget() {
 		File downloadTarget = null;
 		try {
-			if (downloadTarget == null) {
+			if (getCurrentRequestType() == RequestType.SCREENSHOT) {
 				downloadTarget = File.createTempFile("screen_", "_shot", getCacheDir());
+			} else {
+				downloadTarget = File.createTempFile("screen_", "_mirror", getCacheDir());
 			}
 		} catch (IOException e) {
 			Log.e(LOG_TAG, "Couldn't create cache file to download to");
@@ -222,9 +228,15 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 					return;
 				}
 				Log.d(LOG_TAG, "shot request onCompleted");
+				if (surfaceView == null) return;
+				surfaceViewWidth = surfaceView.getWidth();
+				surfaceViewHeight = surfaceView.getHeight();
+				if (surfaceViewWidth <= 0 || surfaceViewHeight <= 0) return ;
+
 				Canvas canvas = mSurfaceHolder.lockCanvas(null);
 				Bitmap bitmap = BitmapFactory.decodeFile(filename.getAbsolutePath());
-				Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, surfaceView.getWidth(),surfaceView.getHeight(), true);
+				if (bitmap == null) return ;
+				Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, surfaceViewWidth,surfaceViewHeight, true);
 				if(scaledBitmap == null) Log.d(LOG_TAG, "cant decode cache buffer");
 				canvas.drawBitmap(scaledBitmap, 10, 10, new Paint());
 				bitmap.recycle();
@@ -279,6 +291,20 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 					}
 				}
 				//Log.d("System.err", Log.getStackTraceString(new Throwable()));
+				//save data in local file for debug
+				try {
+					if (mStreamRecord && fileMirror == null) {
+						File filenameMirror= getDownloadTarget();
+						fileMirror = new FileOutputStream(filenameMirror);
+						Log.d(LOG_TAG, "get mirror file " + filenameMirror.getAbsolutePath());
+					}
+
+					if(fileMirror != null) {
+						fileMirror.write(bb.getAllByteArray());
+					}
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 				mStreamBuffer.enqueue(new ByteArrayInputStream(bb.getAllByteArray()));
 			}
 			@Override
@@ -580,10 +606,13 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 		if (getCurrentRequestType() == RequestType.MIRROR) {
 			//mView = findViewById(R.id.surfaceViewA);
 			Log.d(LOG_TAG, "setup codec player");
-			mRenderManager = RenderManager.getInstance(holder.getSurface());
-			connectPeer(mRenderManager);
-			mPaired = true;
-
+			if (mPaired == false) {
+				mRenderManager = RenderManager.getInstance(holder.getSurface());
+				connectPeer(mRenderManager);
+				mPaired = true;
+			} else {
+				//mRenderManager.updateSurface(holder.getSurface());
+			}
 		}
 		mMirrorScreenRect = calcViewScreenLocation(surfaceView);
 	}
