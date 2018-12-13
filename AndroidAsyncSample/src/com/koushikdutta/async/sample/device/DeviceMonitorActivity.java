@@ -230,11 +230,12 @@ public class DeviceMonitorActivity extends Activity {
 			OutputStream stdout = process.getOutputStream();
 			InputStream stderr = process.getErrorStream();
 			InputStream stdin = process.getInputStream();
-			BufferedReader reader = new BufferedReader(new InputStreamReader(stdin,"GBK"));
+			BufferedReader reader = new BufferedReader(new InputStreamReader(stdin));
 			BufferedReader err= new BufferedReader(new InputStreamReader(stderr));
 			BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(stdout));
-
-			writer.write("export CLASSPATH=/data/local/tmp/app-debug.apk \r\n");
+			writer.write("grep\r\n");
+			writer.write("ls -l\r\n");
+			writer.write("export CLASSPATH=/data/local/tmp/app-debug.apk\r\n");
 			writer.write("ps |grep app_process |grep -v grep | cut -c 9-15 | xargs kill -9\r\n");
 			writer.write("exec app_process /system/bin com.mzj.vysor.Main &\r\n");
 			writer.write("ps | grep app_process  \r\n");
@@ -463,11 +464,11 @@ public class DeviceMonitorActivity extends Activity {
 						case MSG_UPDATE:
 							DeviceStatusPacket packet =  (DeviceStatusPacket) msg.obj;
 							Log.d(TAG,"updatae " + packet.info);
-							mCurrentDevice = packet.deviceHandle;
-							mtvStatus.append(packet.info);
 							if (packet.info.contains("emulator")) {
 								return ;
 							}
+							mCurrentDevice = packet.deviceHandle;
+							mtvStatus.append(packet.info);
 							mLastLine = new String(packet.info);
 							removeCallbacks(processLineRunable);
 							postDelayed(processLineRunable, 2000);

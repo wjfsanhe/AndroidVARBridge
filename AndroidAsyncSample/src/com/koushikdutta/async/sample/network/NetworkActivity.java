@@ -529,6 +529,13 @@ public class NetworkActivity extends Activity implements  SurfaceHolder.Callback
 		DEFAULT_URL = new String(remoteIPV4Addr + ":52174/h264");
 	}
 	@Override
+	protected void onDestroy() {
+		if (FloatWindow.get() != null){
+			FloatWindow.destroy();
+		}
+		super.onDestroy();
+	}
+	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
